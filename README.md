@@ -86,6 +86,13 @@ struct RootView: View {
 - Drag or tap the main page to close.
 - A flick toggles via velocity prediction.
 
+## Example
+
+A runnable demo lives in `Examples/SideDrawerDemo`. Open
+`Examples/SideDrawerDemo/SideDrawerDemo.xcodeproj` and run — it depends on this
+package locally (`XCLocalSwiftPackageReference "../.."`), so it always builds
+against the current source.
+
 ## Note
 
 The corner radius matches the device using the private `_displayCornerRadius`
