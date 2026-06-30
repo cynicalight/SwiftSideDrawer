@@ -93,8 +93,10 @@ A runnable demo lives in `Examples/SideDrawerDemo`. Open
 package locally (`XCLocalSwiftPackageReference "../.."`), so it always builds
 against the current source.
 
-## Note
+## Corners
 
-The corner radius matches the device using the private `_displayCornerRadius`
-key. If you target the App Store and want to avoid private API, pass an explicit
-`cornerRadius:` value.
+The main page rounds with `ContainerRelativeShape`, which is concentric with its
+container — no private API. On iOS 26 the window provides a container shape that
+matches the device screen, so the corners match automatically. On older systems
+the container shape may not reflect the physical screen; if the corners don't
+match there, pass an explicit `cornerRadius:` value.
