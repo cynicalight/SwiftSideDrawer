@@ -5,6 +5,11 @@ page slides over a full-screen menu as one rigid unit â€” safe areas included â€
 with screen-matched rounded corners, interactive spring tracking, flick-to-toggle,
 and an edge-pull gesture.
 
+## Preview
+
+https://github.com/user-attachments/assets/71d607c8-4e20-4003-84ce-ff6a0cfa9cd9
+
+
 ## Requirements
 
 - iOS 17+
