@@ -123,7 +123,7 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                 .offset(x: shift)
 
                 // Edge grabber: pulls the drawer open when closed.
-                Color.red
+                Color.clear
                     .frame(width: edgeWidth)
                     .frame(maxHeight: .infinity)
                     .ignoresSafeArea()
