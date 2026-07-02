@@ -62,7 +62,7 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
         isOpen: Binding<Bool>,
         edge: HorizontalEdge = .leading,
         menuWidthRatio: CGFloat = 0.8,
-        edgeWidth: CGFloat = 24,
+        edgeWidth: CGFloat = 200,
         cornerRadius: CGFloat? = nil,
         @ViewBuilder menu: @escaping () -> Menu,
         @ViewBuilder content: @escaping () -> Content
@@ -123,9 +123,10 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                 .offset(x: shift)
 
                 // Edge grabber: pulls the drawer open when closed.
-                Color.clear
+                Color.red
                     .frame(width: edgeWidth)
                     .frame(maxHeight: .infinity)
+                    .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .gesture(dragGesture(menuWidth: menuWidth))
             }

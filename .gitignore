@@ -1,3 +1,5 @@
 /.swiftpm/xcode/xcuserdata/apple.xcuserdatad/xcschemes
 /.DS_Store
 /Examples/.DS_Store
+/.build/index-build
+/Examples/SideDrawerDemo/SideDrawerDemo.xcodeproj/project.xcworkspace/xcuserdata/apple.xcuserdatad/UserInterfaceState.xcuserstate
