@@ -48,6 +48,8 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
     @State private var progress: CGFloat = 0
     /// Progress captured at touch-down, used as the baseline for the drag.
     @State private var dragStartProgress: CGFloat?
+    /// Whether the current outer drag started in the closed drawer's edge band.
+    @State private var edgeDragAccepted: Bool?
 
     /// Creates a side drawer.
     /// - Parameters:
@@ -110,26 +112,18 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                     // Tap/drag-to-close catcher. Lives inside the offset stack, so
                     // it only covers the main page and never blocks the menu.
                     if p > 0.01 {
-                        Color.black
-                            .opacity(0.001)
+                        Color.clear
                             .ignoresSafeArea()
                             .contentShape(Rectangle())
                             .onTapGesture { animate(to: 0) }
-                            .gesture(dragGesture(menuWidth: menuWidth))
                     }
                 }
                 .shadow(color: .black.opacity(0.12 * Double(clamped)),
                         radius: 24, x: direction * -8, y: 0)
                 .offset(x: shift)
 
-                // Edge grabber: pulls the drawer open when closed.
-                Color.clear
-                    .frame(width: edgeWidth)
-                    .frame(maxHeight: .infinity)
-                    .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .gesture(dragGesture(menuWidth: menuWidth))
             }
+            .simultaneousGesture(edgeDragGesture(containerWidth: geo.size.width, menuWidth: menuWidth))
         }
         // Medium impact on every open/close.
         .sensoryFeedback(.impact(weight: .medium), trigger: isOpen)
@@ -168,6 +162,62 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                 let predicted = base + direction * value.predictedEndTranslation.width / menuWidth
                 animate(to: predicted > 0.5 ? 1 : 0)
             }
+    }
+
+    private func edgeDragGesture(containerWidth: CGFloat, menuWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 10, coordinateSpace: .global)
+            .onChanged { value in
+                if edgeDragAccepted == nil {
+                    edgeDragAccepted = shouldAcceptDragStart(value, containerWidth: containerWidth)
+                }
+                guard edgeDragAccepted == true else { return }
+
+                if dragStartProgress == nil {
+                    dragStartProgress = progress
+                }
+                let base = dragStartProgress ?? 0
+                var p = base + direction * value.translation.width / menuWidth
+
+                // Rubber-band the out-of-range part.
+                if p < 0 { p = p * 0.18 }
+                if p > 1 { p = 1 + (p - 1) * 0.18 }
+
+                withAnimation(.interactiveSpring(response: 0.15, dampingFraction: 0.86)) {
+                    progress = p
+                }
+            }
+            .onEnded { value in
+                defer {
+                    edgeDragAccepted = nil
+                    dragStartProgress = nil
+                }
+                guard edgeDragAccepted == true else { return }
+
+                let base = dragStartProgress ?? progress
+                let predicted = base + direction * value.predictedEndTranslation.width / menuWidth
+                animate(to: predicted > 0.5 ? 1 : 0)
+            }
+    }
+
+    private func shouldAcceptDragStart(_ value: DragGesture.Value, containerWidth: CGFloat) -> Bool {
+        if progress <= 0.01 {
+            return startsInEdgeBand(value.startLocation, containerWidth: containerWidth)
+        }
+
+        if progress >= 0.01 {
+            return direction * value.translation.width < 0
+        }
+
+        return false
+    }
+
+    private func startsInEdgeBand(_ location: CGPoint, containerWidth: CGFloat) -> Bool {
+        switch edge {
+        case .leading:
+            return location.x <= edgeWidth
+        case .trailing:
+            return location.x >= containerWidth - edgeWidth
+        }
     }
 
     private func animate(to target: CGFloat) {
