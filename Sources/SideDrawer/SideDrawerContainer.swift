@@ -56,14 +56,14 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
     ///   - isOpen: Two-way binding controlling open/closed state.
     ///   - edge: Side the drawer slides from. Default `.leading`.
     ///   - menuWidthRatio: Menu width as a fraction of screen width. Default `0.8`.
-    ///   - edgeWidth: Width of the edge band that pulls the drawer open. Default `200`.
+    ///   - edgeWidth: Width of the edge band that pulls the drawer open. Default `100`.
     ///   - menu: The drawer (sits underneath, full screen).
     ///   - content: The main page (slides over the menu).
     public init(
         isOpen: Binding<Bool>,
         edge: HorizontalEdge = .leading,
         menuWidthRatio: CGFloat = 0.8,
-        edgeWidth: CGFloat = 200,
+        edgeWidth: CGFloat = 100,
         @ViewBuilder menu: @escaping () -> Menu,
         @ViewBuilder content: @escaping () -> Content
     ) {
