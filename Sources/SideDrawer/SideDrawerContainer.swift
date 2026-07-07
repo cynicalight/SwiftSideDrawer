@@ -16,8 +16,9 @@ import SwiftUI
 // decides open vs. close, so a flick also toggles it.
 //
 // `isOpen` is a two-way binding: external buttons set it; the drawer's own
-// gestures sync it back. A full-height transparent grabber on the `edge` side
-// (top of the ZStack) wins the edge drag so it isn't stolen by an inner ScrollView.
+// gestures sync it back. The outer drag gesture first decides whether a touch
+// belongs to the drawer or the page, so horizontal drawer drags, vertical
+// ScrollView drags, and taps stay mutually exclusive.
 //
 // The main page stays square when closed, then rounds to a fixed continuous
 // 56-point corner radius as it opens.
@@ -45,6 +46,10 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
     @State private var dragStartProgress: CGFloat?
     /// Whether the current outer drag started in the closed drawer's edge band.
     @State private var edgeDragAccepted: Bool?
+    /// Owner for the current drag sequence, chosen after movement passes a threshold.
+    @State private var dragOwner: DragOwner?
+    /// Temporarily blocks page taps after a drawer drag has claimed the touch.
+    @State private var suppressContentInteraction = false
 
     /// Creates a side drawer.
     /// - Parameters:
@@ -73,6 +78,11 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
     /// +1 = leading (main moves right), -1 = trailing (main moves left).
     private var direction: CGFloat { edge == .leading ? 1 : -1 }
 
+    private enum DragOwner {
+        case drawer
+        case content
+    }
+
     /// Square when closed (full-bleed, so no corner leaks the menu), and fixed
     /// rounded corners once it starts opening.
     private func mainShape(open: Bool) -> AnyShape {
@@ -95,6 +105,8 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                 // Main page: content moved as one unit (single offset).
                 ZStack {
                     content()
+                        .scrollDisabled(dragOwner == .drawer)
+                        .allowsHitTesting(!suppressContentInteraction)
                         .clipShape(mainShape(open: p > 0.001))
                         .ignoresSafeArea()
 
@@ -104,7 +116,10 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                         Color.clear
                             .ignoresSafeArea()
                             .contentShape(Rectangle())
-                            .onTapGesture { animate(to: 0) }
+                            .onTapGesture {
+                                guard !suppressContentInteraction else { return }
+                                animate(to: 0)
+                            }
                     }
                 }
                 .shadow(color: .black.opacity(0.12 * Double(clamped)),
@@ -136,6 +151,13 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                 if dragStartProgress == nil {
                     dragStartProgress = progress
                 }
+                if dragOwner == nil {
+                    dragOwner = owner(for: value)
+                }
+                guard dragOwner == .drawer else { return }
+
+                suppressContentInteraction = true
+
                 let base = dragStartProgress ?? 0
                 var p = base + direction * value.translation.width / menuWidth
 
@@ -149,15 +171,39 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
             }
             .onEnded { value in
                 defer {
+                    let didDragDrawer = dragOwner == .drawer
                     edgeDragAccepted = nil
                     dragStartProgress = nil
+                    dragOwner = nil
+                    if didDragDrawer {
+                        releaseContentInteractionSuppression()
+                    }
                 }
-                guard edgeDragAccepted == true else { return }
+                guard edgeDragAccepted == true, dragOwner == .drawer else { return }
 
                 let base = dragStartProgress ?? progress
                 let predicted = base + direction * value.predictedEndTranslation.width / menuWidth
                 animate(to: predicted > 0.5 ? 1 : 0)
             }
+    }
+
+    private func owner(for value: DragGesture.Value) -> DragOwner? {
+        let horizontal = abs(value.translation.width)
+        let vertical = abs(value.translation.height)
+        let minimumDistance: CGFloat = 10
+
+        guard max(horizontal, vertical) >= minimumDistance else { return nil }
+        guard horizontal > vertical * 1.2 else { return .content }
+        guard isDrawerDragDirection(value) else { return .content }
+        return .drawer
+    }
+
+    private func isDrawerDragDirection(_ value: DragGesture.Value) -> Bool {
+        if progress <= 0.01 {
+            return direction * value.translation.width > 0
+        }
+
+        return direction * value.translation.width < 0
     }
 
     private func shouldAcceptDragStart(_ value: DragGesture.Value, containerWidth: CGFloat) -> Bool {
@@ -188,11 +234,18 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
         let shouldOpen = target > 0.5
         if isOpen != shouldOpen { isOpen = shouldOpen }
     }
+
+    private func releaseContentInteractionSuppression() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            suppressContentInteraction = false
+        }
+    }
 }
 
 #if DEBUG
 private struct SideDrawerContainerPreview: View {
     @State private var isMenuOpen = false
+    @State private var isBackgroundBlack = false
 
     var body: some View {
         SideDrawerContainer(
@@ -252,23 +305,23 @@ private struct SideDrawerContainerPreview: View {
                                     }
 
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Scroll Row \(index)")
+                                    Text("Scroll and Tap")
                                         .font(.headline)
-                                    Text("Drag from the left edge, then keep scrolling this main content.")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
-                            .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .background(isBackgroundBlack ? Color.black : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .onTapGesture {
+                                isBackgroundBlack.toggle()
+                            }
                         }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 72)
                     .padding(.bottom, 32)
                 }
-                .background(Color.cyan.opacity(0.16).ignoresSafeArea())
+                .background(Color.cyan.opacity(0.5).ignoresSafeArea())
             }
         )
     }
