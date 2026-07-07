@@ -83,13 +83,6 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
         case content
     }
 
-    /// Square when closed (full-bleed, so no corner leaks the menu), and fixed
-    /// rounded corners once it starts opening.
-    private func mainShape(open: Bool) -> AnyShape {
-        guard open else { return AnyShape(Rectangle()) }
-        return AnyShape(RoundedRectangle(cornerRadius: 56, style: .continuous))
-    }
-
     public var body: some View {
         GeometryReader { geo in
             let menuWidth = geo.size.width * menuWidthRatio
@@ -107,7 +100,7 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
                     content()
                         .scrollDisabled(dragOwner == .drawer)
                         .allowsHitTesting(!suppressContentInteraction)
-                        .clipShape(mainShape(open: p > 0.001))
+                        .clipShape(RoundedRectangle(cornerRadius: 56, style: .continuous))
                         .ignoresSafeArea()
 
                     // Tap/drag-to-close catcher. Lives inside the offset stack, so
@@ -251,79 +244,99 @@ private struct SideDrawerContainerPreview: View {
         SideDrawerContainer(
             isOpen: $isMenuOpen,
             menu: {
-                VStack(alignment: .leading, spacing: 24) {
-                    Circle()
-                        .fill(.white.opacity(0.25))
-                        .frame(width: 64, height: 64)
-                        .overlay {
-                            Image(systemName: "person.fill")
-                                .font(.title)
-                                .foregroundStyle(.white)
-                        }
-
-                    Text("Menu")
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(.white)
-
-                    Button("Toggle Drawer") {
-                        isMenuOpen.toggle()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.white.opacity(0.25))
-                    .foregroundStyle(.white)
-
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 28)
-                .padding(.top, 60)
-                .background(Color.orange.ignoresSafeArea())
+                SideDrawerPreviewMenu(isMenuOpen: $isMenuOpen)
             },
             content: {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Button {
-                            isMenuOpen.toggle()
-                        } label: {
-                            Label("Open Drawer", systemImage: "line.3.horizontal")
-                                .font(.headline)
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Text("Scrollable Main Content")
-                            .font(.largeTitle.bold())
-
-                        ForEach(1...24, id: \.self) { index in
-                            HStack(spacing: 16) {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color.cyan.opacity(0.25))
-                                    .frame(width: 56, height: 56)
-                                    .overlay {
-                                        Text("\(index)")
-                                            .font(.headline)
-                                            .foregroundStyle(.cyan)
-                                    }
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Scroll and Tap")
-                                        .font(.headline)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                            .background(isBackgroundBlack ? Color.black : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .onTapGesture {
-                                isBackgroundBlack.toggle()
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 72)
-                    .padding(.bottom, 32)
-                }
-                .background(Color.cyan.opacity(0.5).ignoresSafeArea())
+                SideDrawerPreviewContent(
+                    isMenuOpen: $isMenuOpen,
+                    isBackgroundBlack: $isBackgroundBlack
+                )
             }
         )
+    }
+}
+
+private struct SideDrawerPreviewMenu: View {
+    @Binding var isMenuOpen: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Circle()
+                .fill(.white.opacity(0.25))
+                .frame(width: 64, height: 64)
+                .overlay {
+                    Image(systemName: "person.fill")
+                        .font(.title)
+                        .foregroundStyle(.white)
+                }
+
+            Text("Menu")
+                .font(.largeTitle.bold())
+                .foregroundStyle(.white)
+
+            Button("Toggle Drawer") {
+                isMenuOpen.toggle()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.white.opacity(0.25))
+            .foregroundStyle(.white)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 28)
+        .padding(.top, 60)
+        .background(Color.orange.ignoresSafeArea())
+    }
+}
+
+private struct SideDrawerPreviewContent: View {
+    @Binding var isMenuOpen: Bool
+    @Binding var isBackgroundBlack: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Button {
+                    isMenuOpen.toggle()
+                } label: {
+                    Label("Open Drawer", systemImage: "line.3.horizontal")
+                        .font(.headline)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Text("Scrollable Main Content")
+                    .font(.largeTitle.bold())
+
+                ForEach(1...24, id: \.self) { index in
+                    HStack(spacing: 16) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.cyan.opacity(0.25))
+                            .frame(width: 56, height: 56)
+                            .overlay {
+                                Text("\(index)")
+                                    .font(.headline)
+                                    .foregroundStyle(.cyan)
+                            }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Scroll and Tap")
+                                .font(.headline)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(isBackgroundBlack ? Color.black : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .onTapGesture {
+                        isBackgroundBlack.toggle()
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 72)
+            .padding(.bottom, 32)
+        }
+        .background(Color.cyan.opacity(0.5).ignoresSafeArea())
     }
 }
 
