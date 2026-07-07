@@ -2,7 +2,7 @@
 
 A lightweight SwiftUI side drawer (hamburger menu) container. The whole main
 page slides over a full-screen menu as one rigid unit — safe areas included —
-with screen-matched rounded corners, interactive spring tracking, flick-to-toggle,
+with fixed rounded corners, interactive spring tracking, flick-to-toggle,
 and an edge-pull gesture.
 
 ## Preview
@@ -74,8 +74,7 @@ struct RootView: View {
 | `isOpen`         | —           | Two-way binding controlling open/closed state.                |
 | `edge`           | `.leading`  | Side the drawer slides from (`.leading` / `.trailing`).       |
 | `menuWidthRatio` | `0.8`       | How far the main page slides, as a fraction of screen width.  |
-| `edgeWidth`      | `24`        | Width of the edge band that pulls the drawer open when closed.|
-| `cornerRadius`   | `nil`       | Main-page corner radius. `nil` matches the device screen.     |
+| `edgeWidth`      | `200`       | Width of the edge band that pulls the drawer open when closed.|
 | `menu`           | —           | The drawer view (full-screen layer underneath).               |
 | `content`        | —           | The main page view (slides over the menu).                    |
 
@@ -95,8 +94,5 @@ against the current source.
 
 ## Corners
 
-The main page rounds with `ContainerRelativeShape`, which is concentric with its
-container — no private API. On iOS 26 the window provides a container shape that
-matches the device screen, so the corners match automatically. On older systems
-the container shape may not reflect the physical screen; if the corners don't
-match there, pass an explicit `cornerRadius:` value.
+The main page is square when the drawer is closed, then uses a fixed
+`RoundedRectangle(cornerRadius: 56, style: .continuous)` shape while opening.

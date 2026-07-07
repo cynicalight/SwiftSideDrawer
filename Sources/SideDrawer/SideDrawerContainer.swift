@@ -19,10 +19,8 @@ import SwiftUI
 // gestures sync it back. A full-height transparent grabber on the `edge` side
 // (top of the ZStack) wins the edge drag so it isn't stolen by an inner ScrollView.
 //
-// Corners use `ContainerRelativeShape`, which is concentric with the enclosing
-// container — on iOS the window provides a container shape matching the screen,
-// so the card's corners match the device with no private API. Pass an explicit
-// `cornerRadius` to override with a fixed radius instead.
+// The main page stays square when closed, then rounds to a fixed continuous
+// 56-point corner radius as it opens.
 
 public struct SideDrawerContainer<Menu: View, Content: View>: View {
 
@@ -37,9 +35,6 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
 
     /// Edge band width (full height) that can pull the drawer open when closed.
     private let edgeWidth: CGFloat
-
-    /// Main-page corner radius. `nil` matches the screen via `ContainerRelativeShape`.
-    private let cornerRadius: CGFloat?
 
     private let menu: () -> Menu
     private let content: () -> Content
@@ -56,8 +51,7 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
     ///   - isOpen: Two-way binding controlling open/closed state.
     ///   - edge: Side the drawer slides from. Default `.leading`.
     ///   - menuWidthRatio: Menu width as a fraction of screen width. Default `0.8`.
-    ///   - edgeWidth: Width of the edge band that pulls the drawer open. Default `24`.
-    ///   - cornerRadius: Fixed main-page corner radius. `nil` matches the screen. Default `nil`.
+    ///   - edgeWidth: Width of the edge band that pulls the drawer open. Default `200`.
     ///   - menu: The drawer (sits underneath, full screen).
     ///   - content: The main page (slides over the menu).
     public init(
@@ -65,7 +59,6 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
         edge: HorizontalEdge = .leading,
         menuWidthRatio: CGFloat = 0.8,
         edgeWidth: CGFloat = 200,
-        cornerRadius: CGFloat? = nil,
         @ViewBuilder menu: @escaping () -> Menu,
         @ViewBuilder content: @escaping () -> Content
     ) {
@@ -73,7 +66,6 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
         self.edge = edge
         self.menuWidthRatio = menuWidthRatio
         self.edgeWidth = edgeWidth
-        self.cornerRadius = cornerRadius
         self.menu = menu
         self.content = content
     }
@@ -81,14 +73,11 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
     /// +1 = leading (main moves right), -1 = trailing (main moves left).
     private var direction: CGFloat { edge == .leading ? 1 : -1 }
 
-    /// Square when closed (full-bleed, so no corner leaks the menu), and the
-    /// screen-matched / fixed shape once it starts opening.
+    /// Square when closed (full-bleed, so no corner leaks the menu), and fixed
+    /// rounded corners once it starts opening.
     private func mainShape(open: Bool) -> AnyShape {
         guard open else { return AnyShape(Rectangle()) }
-        if let cornerRadius {
-            return AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        }
-        return AnyShape(ContainerRelativeShape())
+        return AnyShape(RoundedRectangle(cornerRadius: 56, style: .continuous))
     }
 
     public var body: some View {
@@ -135,34 +124,6 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
     }
 
     // MARK: Gesture
-
-    private func dragGesture(menuWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .global)
-            .onChanged { value in
-                if dragStartProgress == nil {
-                    dragStartProgress = progress
-                }
-                let base = dragStartProgress ?? 0
-                var p = base + direction * value.translation.width / menuWidth
-
-                // Rubber-band the out-of-range part.
-                if p < 0 { p = p * 0.18 }
-                if p > 1 { p = 1 + (p - 1) * 0.18 }
-
-                // interactiveSpring tracks the finger and smoothly interrupts
-                // any in-flight release animation.
-                withAnimation(.interactiveSpring(response: 0.15, dampingFraction: 0.86)) {
-                    progress = p
-                }
-            }
-            .onEnded { value in
-                let base = dragStartProgress ?? progress
-                dragStartProgress = nil
-                // Velocity-aware end point: a flick toggles too.
-                let predicted = base + direction * value.predictedEndTranslation.width / menuWidth
-                animate(to: predicted > 0.5 ? 1 : 0)
-            }
-    }
 
     private func edgeDragGesture(containerWidth: CGFloat, menuWidth: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 10, coordinateSpace: .global)
@@ -228,3 +189,92 @@ public struct SideDrawerContainer<Menu: View, Content: View>: View {
         if isOpen != shouldOpen { isOpen = shouldOpen }
     }
 }
+
+#if DEBUG
+private struct SideDrawerContainerPreview: View {
+    @State private var isMenuOpen = false
+
+    var body: some View {
+        SideDrawerContainer(
+            isOpen: $isMenuOpen,
+            menu: {
+                VStack(alignment: .leading, spacing: 24) {
+                    Circle()
+                        .fill(.white.opacity(0.25))
+                        .frame(width: 64, height: 64)
+                        .overlay {
+                            Image(systemName: "person.fill")
+                                .font(.title)
+                                .foregroundStyle(.white)
+                        }
+
+                    Text("Menu")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(.white)
+
+                    Button("Toggle Drawer") {
+                        isMenuOpen.toggle()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.white.opacity(0.25))
+                    .foregroundStyle(.white)
+
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 28)
+                .padding(.top, 60)
+                .background(Color.orange.ignoresSafeArea())
+            },
+            content: {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Button {
+                            isMenuOpen.toggle()
+                        } label: {
+                            Label("Open Drawer", systemImage: "line.3.horizontal")
+                                .font(.headline)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Text("Scrollable Main Content")
+                            .font(.largeTitle.bold())
+
+                        ForEach(1...24, id: \.self) { index in
+                            HStack(spacing: 16) {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color.cyan.opacity(0.25))
+                                    .frame(width: 56, height: 56)
+                                    .overlay {
+                                        Text("\(index)")
+                                            .font(.headline)
+                                            .foregroundStyle(.cyan)
+                                    }
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Scroll Row \(index)")
+                                        .font(.headline)
+                                    Text("Drag from the left edge, then keep scrolling this main content.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 72)
+                    .padding(.bottom, 32)
+                }
+                .background(Color.cyan.opacity(0.16).ignoresSafeArea())
+            }
+        )
+    }
+}
+
+#Preview {
+    SideDrawerContainerPreview()
+}
+#endif
